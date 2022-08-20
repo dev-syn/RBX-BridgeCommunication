@@ -1,0 +1,20 @@
+{
+  "name": "BridgeCommunication",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+
+      "BridgeCommunication": {
+        "$path": "BridgeCommunication",
+  
+        "Dependencies": {"$path": "Packages"},
+        "TestScripts": {
+          "$className": "Folder",
+          "$path": "TestScripts"
+        }
+      }
+    }
+  }
+}
