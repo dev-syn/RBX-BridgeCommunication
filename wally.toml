@@ -1,5 +1,7 @@
 [package]
 name = "devsyn/bridgecommunication"
+description = "Designed to automate one-way server/client communication."
+license = "MIT"
 version = "0.1.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
