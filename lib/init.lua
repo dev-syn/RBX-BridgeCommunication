@@ -9,15 +9,15 @@ local NAME_BRIDGE_COMM = "BridgeCommunicationEvent"
 local ERROR_INVALID_PARAM = "Invalid type passed for '%s' expected '%s' but got '%s'";
 local ERROR_INVALID_ENV = "'%s' can only be called from the '%s' env";
 
-local BridgeCommunication = {} :: Types.Schema_BridgeCommunication;
+local BridgeCommunication: Types.Schema_BridgeCommunication = {} :: Types.Schema_BridgeCommunication;
 BridgeCommunication.ClassName = "BridgeCommunication";
 BridgeCommunication.__index = BridgeCommunication;
 BridgeCommunication._EstablishedConnections = isServer and {} or nil;
 BridgeCommunication._BridgeComms = {};
 
 BridgeCommunication.Comm = {
-    Create = "Create",
-    Destroy = "Destroy",
+    Create = "BridgeCommunication-Create",
+    Destroy = "BridgeCommunication-Destroy",
     Ping = "BridgeCommunication-Ping"
 };
 
