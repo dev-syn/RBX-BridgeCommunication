@@ -1,0 +1,10 @@
+title = "BridgeCommunication"
+gitRepoUrl = "https://github.com/dev-syn/RBX-BridgeCommunication"
+gitSourceBranch = "main"
+changelog = true
+[docusaurus]
+onBrokenLinks = "throw"
+onBrokenMarkdownLinks = "warn"
+[footer]
+style = "dark"
+copyright = "Copyright ©, 2022-2022, dev-syn, Casey Ollis. Built with Moonwave and Docusaurus"

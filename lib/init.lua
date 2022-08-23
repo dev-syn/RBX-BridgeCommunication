@@ -9,7 +9,15 @@ local NAME_BRIDGE_COMM = "BridgeCommunicationEvent"
 local ERROR_INVALID_PARAM = "Invalid type passed for '%s' expected '%s' but got '%s'";
 local ERROR_INVALID_ENV = "'%s' can only be called from the '%s' env";
 
+--- @class BridgeCommunication
+--- This class is designed to automate communication between the server and client it uses RemoteEvents internally.
+
 local BridgeCommunication: Types.Schema_BridgeCommunication = {} :: Types.Schema_BridgeCommunication;
+--[=[
+    @prop ClassName "BridgeCommunication"
+    @within BridgeCommunication
+    The ClassName of this class.
+]=]
 BridgeCommunication.ClassName = "BridgeCommunication";
 BridgeCommunication.__index = BridgeCommunication;
 BridgeCommunication._EstablishedConnections = isServer and {} or nil;
@@ -180,7 +188,7 @@ function BridgeCommunication.new(name: string) : BridgeComm
     return setmetatable(self,BridgeCommunication) :: BridgeComm;
 end
 
---- Fires with (Player,...any)
+-- Fires with (Player,...any)
 function BridgeCommunication.SetCommBridge(self: BridgeComm,bridgeKey: string,bridgeFn: (any...) -> ())
     if typeof(bridgeKey) ~= "string" then
         error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("bridgeKey","string",typeof(bridgeKey))),2);
