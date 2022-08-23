@@ -1,4 +1,4 @@
---- @module BridgeCommunication/Types
+--- @module lib/Types
 local Types = require(script:FindFirstChild("Types"));
 export type BridgeComm = Types.BridgeComm;
 
@@ -18,8 +18,15 @@ BridgeCommunication._BridgeComms = {};
 BridgeCommunication.Comm = {
     Create = "Create",
     Destroy = "Destroy",
-    Ping = "Ping"
+    Ping = "BridgeCommunication-Ping"
 };
+
+local function FireWithConnection(remote: RemoteEvent,player: Player,...: any)
+    local hasConnection: boolean = BridgeCommunication.EstablishConnection(remote,player,30);
+    if hasConnection then
+        remote:FireClient(player,...);
+    end
+end
 
 local BridgeEvents: Folder;
 local BridgeCommunicationEvent: RemoteEvent;
@@ -44,12 +51,8 @@ if isServer then
 
     -- Create BridgeCommunications on joining clients.
     game.Players.PlayerAdded:Connect(function(player: Player)
-        local hasConnection: boolean = BridgeCommunication.EstablishConnection(BridgeCommunicationEvent,player,30);
-        print("has connection: ",hasConnection);
-        if hasConnection then
-            for commName: string,bridgeComm: BridgeComm in pairs(BridgeCommunication._BridgeComms) do
-                BridgeCommunicationEvent:FireClient(player,BridgeCommunication.Comm.Create,bridgeComm.Name);
-            end
+        for commName: string,bridgeComm: BridgeComm in pairs(BridgeCommunication._BridgeComms) do
+            task.spawn(FireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication.Comm.Create,bridgeComm.Name);
         end
     end);
 
@@ -145,38 +148,32 @@ function BridgeCommunication.new(name: string) : BridgeComm
         self._RemoteEvent.Name = name;
         self._RemoteEvent.Parent = BridgeEvents;
         self._RemoteEvent.OnServerEvent:Connect(function(player: Player,bridgeComm: string,...: any)
-            if not self._BridgeFunctions[bridgeComm] then
+            if bridgeComm == BridgeCommunication.Comm.Ping then
+                BridgeCommunication._EstablishedConnections[player][self._RemoteEvent.Name] = true;
+                return;
+            end
+            if not typeof(self._BridgeFunctions[bridgeComm]) == "function" then
                 local startTime: number = DateTime.now().UnixTimestamp;
                 repeat task.wait(0.15) until self._BridgeFunctions[bridgeComm] or DateTime.now().UnixTimestamp - startTime >= 7;
             end
-            if bridgeComm == "BridgeCommunication-Ping" then
-                self._EstablishedConnections[player][self._RemoteEvent.Name] = true;
-            elseif typeof(self._BridgeFunctions[bridgeComm]) == "function" then
-                self._BridgeFunctions[bridgeComm](player,...);
-            end
+            self._BridgeFunctions[bridgeComm](player,...);
         end);
         -- Create this on the client
         for _: number,player: Player in ipairs(game.Players:GetPlayers()) do
-            task.spawn(function()
-                local hasConnection: boolean = BridgeCommunication.EstablishConnection(BridgeCommunicationEvent,player,30);
-                print("has connection: ",hasConnection);
-                if hasConnection then
-                    BridgeCommunicationEvent:FireClient(player,BridgeCommunication.Comm.Create,self.Name);
-                end
-            end);
+            task.spawn(FireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication.Comm.Create,self.Name);
         end
     else
         self._RemoteEvent = BridgeEvents:WaitForChild(name) :: RemoteEvent?;
         self._RemoteEvent.OnClientEvent:Connect(function(bridgeComm: string,...: any)
-            if not self._BridgeFunctions[bridgeComm] then
+            if bridgeComm == BridgeCommunication.Comm.Ping then
+                self._RemoteEvent:FireServer(BridgeCommunication.Comm.Ping);
+                return;
+            end
+            if not typeof(self._BridgeFunctions[bridgeComm]) == "function" then
                 local startTime: number = DateTime.now().UnixTimestamp;
                 repeat task.wait(0.15) until self._BridgeFunctions[bridgeComm] or DateTime.now().UnixTimestamp - startTime >= 7;
             end
-            if bridgeComm == "BridgeCommunication-Ping" then
-                self._RemoteEvent:FireServer("BridgeCommunication-Ping");
-            elseif typeof(self._BridgeFunctions[bridgeComm]) == "function" then
-                self._BridgeFunctions[bridgeComm](game.Players.LocalPlayer,...);
-            end
+            self._BridgeFunctions[bridgeComm](game.Players.LocalPlayer,...);
         end);
     end
     BridgeCommunication._BridgeComms[self.Name] = self :: BridgeComm;
@@ -214,19 +211,13 @@ function BridgeCommunication.FireClient(self: BridgeComm,player: Player,bridgeKe
         warn(BridgeCommunication._FormatOut("No CommBridge has been created for bridgeKey: "..bridgeKey.." in "..self.Name));
         return;
     end
-    task.spawn(function(...)
-        -- Establish connection with this client
-        local hasConnection: boolean = BridgeCommunication.EstablishConnection(self._RemoteEvent,player,30);
-        if hasConnection then
-            self._RemoteEvent:FireClient(player,bridgeKey,...);
-        end
-    end);
+    task.spawn(FireWithConnection,self._RemoteEvent,player,bridgeKey,...);
 end
 
 function BridgeCommunication.Destroy(self: BridgeComm)
     if isServer then
         for _: number,player: Player in ipairs(game.Players:GetPlayers()) do
-            self:FireClient(player,BridgeCommunication.Comm.Destroy);
+            task.spawn(FireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication.Comm.Destroy,self.Name);
             if BridgeCommunication._EstablishedConnections[player] then
                 BridgeCommunication._EstablishedConnections[player][self.Name] = nil;
             end

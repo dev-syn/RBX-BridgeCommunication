@@ -1,9 +1,6 @@
 {
   "name": "BridgeCommunication",
   "tree": {
-    "$path": "BridgeCommunication",
-
-    "Dependencies": {"$path": "Packages"}
-
+    "$path": "lib"
   }
 }

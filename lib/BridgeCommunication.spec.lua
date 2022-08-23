@@ -1,5 +1,5 @@
 local isServer: boolean = game:GetService("RunService"):IsServer();
---- @module BridgeCommunication/Types
+--- @module lib/Types
 local Types = require(script.Parent:FindFirstChild("Types"));
 type BridgeComm = Types.BridgeComm;
 

@@ -7,7 +7,7 @@
       "$className": "ReplicatedStorage",
 
       "BridgeCommunication": {
-        "$path": "BridgeCommunication",
+        "$path": "lib",
   
         "Dependencies": {"$path": "Packages"}
       }
