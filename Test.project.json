@@ -9,11 +9,21 @@
       "BridgeCommunication": {
         "$path": "BridgeCommunication",
   
-        "Dependencies": {"$path": "Packages"},
-        "TestScripts": {
-          "$className": "Folder",
-          "$path": "TestScripts"
-        }
+        "Dependencies": {"$path": "Packages"}
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+
+      "testServer": {"$path": "TestScripts/testServer.server.lua"}
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+
+        "testClient": {"$path": "TestScripts/testClient.client.lua"}
       }
     }
   }

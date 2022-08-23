@@ -12,7 +12,7 @@ export type Schema_BridgeCommunication = {
     ClassName: "BridgeCommunication" | string,
     __index: Object,
     _EstablishedConnections: Map<Player,Dictionary<boolean?>>?,
-    _BridgeComms: Map<BridgeComm,boolean?>,
+    _BridgeComms: Dictionary<BridgeComm>,
     Comm: {
         Create: "Create" | string,
         Destroy: "Destroy" | string,
