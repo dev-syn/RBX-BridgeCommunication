@@ -1,2 +1,2 @@
 # BridgeCommunication
-A Module designed to automate communication between the server and client using Bridge Comm objects which internally use RemoteEvents.
+This was designed to automate one-way server/client communication for Creating simple objects or Destroying. This is a lightweight version to my ReplicatableService.
