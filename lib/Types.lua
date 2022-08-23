@@ -14,9 +14,9 @@ export type Schema_BridgeCommunication = {
     _EstablishedConnections: Map<Player,Dictionary<boolean?>>?,
     _BridgeComms: Dictionary<BridgeComm>,
     Comm: {
-        Create: "Create" | string,
-        Destroy: "Destroy" | string,
-        Ping: "Ping" | string
+        Create: "BridgeCommunication-Create" | string,
+        Destroy: "BridgeCommunication-Destroy" | string,
+        Ping: "BridgeCommunication-Ping" | string
     },
 
     WaitForBridgeComm: (bridgeName: string,timeOut: number?) -> BridgeComm?,
