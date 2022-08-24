@@ -20,6 +20,7 @@ export type Schema_BridgeCommunication = {
         Ping: "BridgeCommunication-Ping" | string
     },
 
+    Init: () -> (),
     WaitForBridgeComm: (bridgeName: string,timeOut: number?) -> BridgeComm?,
     EstablishConnection : (remote: RemoteEvent,player: Player,timeOut: number?) -> boolean,
     new: (name: string) -> BridgeComm,
@@ -70,55 +71,57 @@ end
 local BridgeEvents: Folder;
 local BridgeCommunicationEvent: RemoteEvent;
 
-if isServer then
-    BridgeEvents = script:FindFirstChild("BridgeEvents") or Instance.new("Folder");
-    BridgeEvents.Name = "BridgeEvents";
-    BridgeEvents.Parent = script;
-
-    BridgeCommunicationEvent = script:FindFirstChild(NAME_BRIDGE_COMM) or Instance.new("RemoteEvent");
-    BridgeCommunicationEvent.Name = NAME_BRIDGE_COMM;
-    if not BridgeCommunicationEvent.Parent then BridgeCommunicationEvent.Parent = script; end
-
-    BridgeCommunicationEvent.OnServerEvent:Connect(function(player: Player,bridgeKey: string,bridgeName: string,...: any)
-        if not BridgeCommunication._EstablishedConnections[player] then
-            BridgeCommunication._EstablishedConnections[player] = {};
+function BridgeCommunication.Init()
+    if isServer then
+        BridgeEvents = script:FindFirstChild("BridgeEvents") or Instance.new("Folder");
+        BridgeEvents.Name = "BridgeEvents";
+        BridgeEvents.Parent = script;
+    
+        BridgeCommunicationEvent = script:FindFirstChild(NAME_BRIDGE_COMM) or Instance.new("RemoteEvent");
+        BridgeCommunicationEvent.Name = NAME_BRIDGE_COMM;
+        if not BridgeCommunicationEvent.Parent then BridgeCommunicationEvent.Parent = script; end
+    
+        BridgeCommunicationEvent.OnServerEvent:Connect(function(player: Player,bridgeKey: string,bridgeName: string,...: any)
+            if not BridgeCommunication._EstablishedConnections[player] then
+                BridgeCommunication._EstablishedConnections[player] = {};
+            end
+            if bridgeKey == BridgeCommunication.Comm.Ping and not BridgeCommunication._EstablishedConnections[player][bridgeName] then
+                  BridgeCommunication._EstablishedConnections[player][bridgeName] = true;
+            end
+        end);
+    
+        -- Create BridgeCommunications on joining clients.
+        game.Players.PlayerAdded:Connect(function(player: Player)
+            for commName: string,bridgeComm: BridgeComm in pairs(BridgeCommunication._BridgeComms) do
+                task.spawn(FireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication.Comm.Create,bridgeComm.Name);
+            end
+        end);
+    
+        -- Remove clients from _EstablishedConnections when leaving.
+        game.Players.PlayerRemoving:Connect(function(player: Player)
+            BridgeCommunication._EstablishedConnections[player] = nil;
+        end);
+    else
+        BridgeEvents = script:WaitForChild("BridgeEvents",30);
+        if not BridgeEvents then
+            error(BridgeCommunication._FormatOut("BridgeEvents folder was not created, make sure BridgeCommunication was required on the server."),2);
         end
-        if bridgeKey == BridgeCommunication.Comm.Ping and not BridgeCommunication._EstablishedConnections[player][bridgeName] then
-              BridgeCommunication._EstablishedConnections[player][bridgeName] = true;
+        BridgeCommunicationEvent = script:WaitForChild(NAME_BRIDGE_COMM,30);
+        if not BridgeCommunicationEvent then
+            error(BridgeCommunication._FormatOut("BridgeCommunication event was not created, make sure BridgeCommunication was required on the server."),2);
         end
-    end);
-
-    -- Create BridgeCommunications on joining clients.
-    game.Players.PlayerAdded:Connect(function(player: Player)
-        for commName: string,bridgeComm: BridgeComm in pairs(BridgeCommunication._BridgeComms) do
-            task.spawn(FireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication.Comm.Create,bridgeComm.Name);
-        end
-    end);
-
-    -- Remove clients from _EstablishedConnections when leaving.
-    game.Players.PlayerRemoving:Connect(function(player: Player)
-        BridgeCommunication._EstablishedConnections[player] = nil;
-    end);
-else
-    BridgeEvents = script:WaitForChild("BridgeEvents",30);
-    if not BridgeEvents then
-        error(BridgeCommunication._FormatOut("BridgeEvents folder was not created, make sure BridgeCommunication was required on the server."),2);
+    
+        BridgeCommunicationEvent.OnClientEvent:Connect(function(bridgeKey: string,bridgeName: string,...: any)
+            local bridgeComm: BridgeComm? = BridgeCommunication._BridgeComms[bridgeName] :: BridgeComm?;
+            if bridgeKey == BridgeCommunication.Comm.Create and not bridgeComm then
+                BridgeCommunication.new(bridgeName);
+            elseif bridgeKey == BridgeCommunication.Comm.Destroy and bridgeComm then
+                (bridgeComm::BridgeComm):Destroy();
+            elseif bridgeKey == BridgeCommunication.Comm.Ping then
+                BridgeCommunicationEvent:FireServer(bridgeKey,bridgeName);
+            end
+        end);
     end
-    BridgeCommunicationEvent = script:WaitForChild(NAME_BRIDGE_COMM,30);
-    if not BridgeCommunicationEvent then
-        error(BridgeCommunication._FormatOut("BridgeCommunication event was not created, make sure BridgeCommunication was required on the server."),2);
-    end
-
-    BridgeCommunicationEvent.OnClientEvent:Connect(function(bridgeKey: string,bridgeName: string,...: any)
-        local bridgeComm: BridgeComm? = BridgeCommunication._BridgeComms[bridgeName] :: BridgeComm?;
-        if bridgeKey == BridgeCommunication.Comm.Create and not bridgeComm then
-            BridgeCommunication.new(bridgeName);
-        elseif bridgeKey == BridgeCommunication.Comm.Destroy and bridgeComm then
-            (bridgeComm::BridgeComm):Destroy();
-        elseif bridgeKey == BridgeCommunication.Comm.Ping then
-            BridgeCommunicationEvent:FireServer(bridgeKey,bridgeName);
-        end
-    end);
 end
 
 function BridgeCommunication.WaitForBridgeComm(bridgeName: string,timeOut: number?) : BridgeComm?
