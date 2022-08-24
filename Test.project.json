@@ -9,7 +9,7 @@
       "BridgeCommunication": {
         "$path": "lib",
   
-        "DevDependencies": {"$path": "DevPackages"}
+        "Dependencies": {"$path": "Packages"}
       }
     },
     "ServerScriptService": {

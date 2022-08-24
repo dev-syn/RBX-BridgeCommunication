@@ -2,9 +2,9 @@
 name = "dev-syn/bridgecommunication"
 description = "Designed to automate one-way server/client communication."
 license = "MIT"
-version = "0.1.1"
+version = "0.1.2"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 
-[dev-dependencies]
+[dependencies]
 testez = "roblox/testez@0.4.1"
