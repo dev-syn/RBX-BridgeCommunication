@@ -1,4 +1,4 @@
 local BridgeCommunicationModule: ModuleScript? = game:GetService("ReplicatedStorage"):FindFirstChild("BridgeCommunication");
-local Dependencies: Folder? = BridgeCommunicationModule:FindFirstChild("Dependencies");
-local TestEZ = require(Dependencies:FindFirstChild("testez"));
+local DevDependencies: Folder? = BridgeCommunicationModule:FindFirstChild("DevDependencies");
+local TestEZ = require(DevDependencies:FindFirstChild("testez"));
 TestEZ.TestBootstrap:run({BridgeCommunicationModule});
