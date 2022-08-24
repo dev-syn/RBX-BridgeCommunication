@@ -1,6 +1,37 @@
---- @module lib/Types
-local Types = require(script:FindFirstChild("Types"));
-export type BridgeComm = Types.BridgeComm;
+--#region Types
+export type Map<K,V> = {[K]: V};
+export type Dictionary<T> = Map<string,T>
+export type Object = Dictionary<any>
+
+export type Object_BridgeCommunication = {
+    Name: string,
+    _BridgeFunctions: Dictionary<(player: Player,self: BridgeComm,...any) -> ()>,
+    _RemoteEvent: RemoteEvent?,
+};
+
+export type Schema_BridgeCommunication = {
+    ClassName: "BridgeCommunication" | string,
+    __index: Object,
+    _EstablishedConnections: Map<Player,Dictionary<boolean?>>?,
+    _BridgeComms: Dictionary<BridgeComm>,
+    Comm: {
+        Create: "BridgeCommunication-Create" | string,
+        Destroy: "BridgeCommunication-Destroy" | string,
+        Ping: "BridgeCommunication-Ping" | string
+    },
+
+    WaitForBridgeComm: (bridgeName: string,timeOut: number?) -> BridgeComm?,
+    EstablishConnection : (remote: RemoteEvent,player: Player,timeOut: number?) -> boolean,
+    new: (name: string) -> BridgeComm,
+    SetCommBridge: (self: BridgeComm,bridgeKey: string,bridgeFn: (player: Player,any...) -> ()) -> (),
+    FireServer: (self: BridgeComm,bridgeKey: string,...any) -> (),
+    FireClient: (self: BridgeComm,player: Player,bridgeKey: string,...any) -> (),
+    Destroy: (self: BridgeComm) -> (),
+    _FormatOut: (message: string) -> string
+};
+
+export type BridgeComm = Object_BridgeCommunication & Schema_BridgeCommunication;
+--#endregion
 
 local isServer: boolean = game:GetService("RunService"):IsServer();
 
@@ -12,7 +43,7 @@ local ERROR_INVALID_ENV = "'%s' can only be called from the '%s' env";
 --- @class BridgeCommunication
 --- This class is designed to automate communication between the server and client it uses RemoteEvents internally.
 
-local BridgeCommunication: Types.Schema_BridgeCommunication = {} :: Types.Schema_BridgeCommunication;
+local BridgeCommunication: Schema_BridgeCommunication = {} :: Schema_BridgeCommunication;
 --[=[
     @prop ClassName "BridgeCommunication"
     @within BridgeCommunication
@@ -79,11 +110,11 @@ else
     end
 
     BridgeCommunicationEvent.OnClientEvent:Connect(function(bridgeKey: string,bridgeName: string,...: any)
-        local bridgeComm: BridgeComm? = BridgeCommunication._BridgeComms[bridgeName];
+        local bridgeComm: BridgeComm? = BridgeCommunication._BridgeComms[bridgeName] :: BridgeComm?;
         if bridgeKey == BridgeCommunication.Comm.Create and not bridgeComm then
             BridgeCommunication.new(bridgeName);
         elseif bridgeKey == BridgeCommunication.Comm.Destroy and bridgeComm then
-            bridgeComm:Destroy();
+            (bridgeComm::BridgeComm):Destroy();
         elseif bridgeKey == BridgeCommunication.Comm.Ping then
             BridgeCommunicationEvent:FireServer(bridgeKey,bridgeName);
         end
@@ -109,7 +140,7 @@ function BridgeCommunication.WaitForBridgeComm(bridgeName: string,timeOut: numbe
         end
         task.wait(0.15);
     until BridgeCommunication._BridgeComms[bridgeName] or timeOut and DateTime.now().UnixTimestampMillis - startTime >= timeInMS;
-    return BridgeCommunication._BridgeComms[bridgeName];
+    return BridgeCommunication._BridgeComms[bridgeName] or nil;
 end
 
 function BridgeCommunication.EstablishConnection(remote: RemoteEvent,player: Player,timeOut: number?) : boolean
@@ -148,7 +179,7 @@ function BridgeCommunication.new(name: string) : BridgeComm
     if BridgeCommunication._BridgeComms[name] then
        error(BridgeCommunication._FormatOut("BridgeCommunication with name: '"..name.." already exists."));
     end
-    local self: Types.Object_BridgeCommunication = {} :: Types.Object_BridgeCommunication;
+    local self: Object_BridgeCommunication = {} :: Object_BridgeCommunication;
     self.Name = name;
     self._BridgeFunctions = {};
     if isServer then
@@ -189,7 +220,7 @@ function BridgeCommunication.new(name: string) : BridgeComm
 end
 
 -- Fires with (Player,...any)
-function BridgeCommunication.SetCommBridge(self: BridgeComm,bridgeKey: string,bridgeFn: (any...) -> ())
+function BridgeCommunication.SetCommBridge(self: BridgeComm,bridgeKey: string,bridgeFn: (player: Player,any...) -> ())
     if typeof(bridgeKey) ~= "string" then
         error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("bridgeKey","string",typeof(bridgeKey))),2);
     end

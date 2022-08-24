@@ -1,10 +1,9 @@
 local isServer: boolean = game:GetService("RunService"):IsServer();
---- @module lib/Types
-local Types = require(script.Parent:FindFirstChild("Types"));
-type BridgeComm = Types.BridgeComm;
 
 return function()
-    local BridgeCommunication: Types.Schema_BridgeCommunication = require(script.Parent);
+    --- @module lib/init
+    local BridgeCommunication = require(script.Parent);
+    type BridgeComm = BridgeCommunication.BridgeComm;
 
     if isServer then
         describe("BridgeCommunication Server Tests",function()
@@ -26,7 +25,7 @@ return function()
         end);
     else
         describe("BridgeCommunication Client Tests",function()
-            local testBridgeComm: BridgeComm;
+            local testBridgeComm: BridgeComm? = nil;
             it("Should be able to wait for a BridgeCommunication",function()
                 testBridgeComm = BridgeCommunication.WaitForBridgeComm("TestBridgeComm");
                 expect(testBridgeComm).to.be.ok();
