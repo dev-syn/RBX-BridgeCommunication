@@ -4,8 +4,8 @@ registry = "test"
 
 [[package]]
 name = "dev-syn/bridgecommunication"
-version = "0.1.4"
-dependencies = []
+version = "0.1.5"
+dependencies = [["TestEZ", "roblox/testez@0.4.1"]]
 
 [[package]]
 name = "roblox/testez"
