@@ -23,11 +23,12 @@ export type Schema_BridgeCommunication = {
     _EstablishedConnections: Map<Player,Map<RemoteEvent,boolean?>>?,
     _BridgeComms: Dictionary<BridgeComm>,
     _QueuedComms: Map<Player,Map<RemoteEvent,{any}>>,
-    Comm: {
+    _Comm: {
         Create: "BridgeCommunication-Create" | string,
         Destroy: "BridgeCommunication-Destroy" | string,
         Ping: "BridgeCommunication-Ping" | string
     },
+    ConnectionStatus: E_ConnectionStatus,
 
     Init: () -> Schema_BridgeCommunication,
     WaitForBridgeComm: (bridgeName: string,timeOut: number?) -> BridgeComm?,
@@ -55,31 +56,72 @@ local ERROR_INVALID_ENV = "'%s' can only be called from the '%s' env";
 --- This class is designed to automate communication between the server and client it uses RemoteEvents internally.
 
 local BridgeCommunication: Schema_BridgeCommunication = {} :: Schema_BridgeCommunication;
+BridgeCommunication.__index = BridgeCommunication;
+
 --[=[
     @prop ClassName "BridgeCommunication"
     @within BridgeCommunication
-    The ClassName of this class.
+    The class name of this class.
 ]=]
 BridgeCommunication.ClassName = "BridgeCommunication";
-BridgeCommunication.__index = BridgeCommunication;
+--[=[
+    @prop _EstablishedConnections Map<Player,Map<RemoteEvent,boolean?>>
+    @within BridgeCommunication
+    @private
+    The internal tracking of established connections with clients.
+]=]
 BridgeCommunication._EstablishedConnections = isServer and {} or nil;
+--[=[
+    @prop _BridgeComms Dictionary<BridgeComm>
+    @within BridgeCommunication
+    @private
+    The internal stored BridgeCommunications that were created.
+]=]
 BridgeCommunication._BridgeComms = {};
 
 -- Per player, Per Remote
+--[=[
+    @prop _QueuedComms Map<Player,Map<RemoteEvent,{any}>>
+    @within BridgeCommunication
+    @private
+    The internal queued BridgeCommunications that were fired with those arguments.
+]=]
 BridgeCommunication._QueuedComms = {};
 
-BridgeCommunication.Comm = {
+BridgeCommunication._Comm = {
     Create = "BridgeCommunication-Create",
     Destroy = "BridgeCommunication-Destroy",
     Ping = "BridgeCommunication-Ping"
 };
 
 -- Enum ConnectionStatus
-local ConnectionStatus: E_ConnectionStatus = {
+
+--[=[
+    @interface I_ConnectionStatus
+    @within BridgeCommunication
+    .TIMEOUT "TIMEOUT",
+    .ESTABLISHED "ESTABLISHED",
+    .QUEUED "QUEUED"
+]=]
+
+--[=[
+    @type T_ConnectionStatus "TIMEOUT" | "ESTABLISHED" | "QUEUED"
+    @within BridgeCommunication
+    The ConnectionStatus is returned from [BridgeCommunication.EstablishConnection]
+]=]
+
+--[=[
+    @prop ConnectionStatus I_ConnectionStatus
+    @within BridgeCommunication
+    This is a enum table used for the ConnectionStatus of [BridgeCommunication.T_ConnectionStatus]
+]=]
+BridgeCommunication.ConnectionStatus = {
     TIMEOUT = "TIMEOUT",
     ESTABLISHED = "ESTABLISHED",
     QUEUED = "QUEUED"
 };
+
+local ConnectionStatus: E_ConnectionStatus = BridgeCommunication.ConnectionStatus;
 
 local BridgeEvents: Folder;
 local BridgeCommunicationEvent: RemoteEvent;
@@ -99,6 +141,17 @@ local function fireWithConnection(remote: RemoteEvent,player: Player,...: any)
     end
 end
 
+--[=[
+    @within BridgeCommunication
+    This method is for initializing the BridgeCommunication Module this function **must** be called on both the **server & client**.
+    This returns the BridgeCommunication class allowing to call Init on the same line hile retaining the class required.
+    ```lua
+        local BridgeCommunication = require(BridgeCommunicationModule).Init();
+        -- BridgeCommunication is the class
+        BridgeCommunication.new("Test");
+    ```
+]=]
+
 function BridgeCommunication.Init() : Schema_BridgeCommunication
     if isServer then
         -- Setup BridgeCommunicationEvent
@@ -111,7 +164,7 @@ function BridgeCommunication.Init() : Schema_BridgeCommunication
 				if not BridgeCommunication._EstablishedConnections[player] then
 					BridgeCommunication._EstablishedConnections[player] = {};
 				end
-				if bridgeKey == BridgeCommunication.Comm.Ping and not BridgeCommunication._EstablishedConnections[player][BridgeCommunicationEvent] then
+				if bridgeKey == BridgeCommunication._Comm.Ping and not BridgeCommunication._EstablishedConnections[player][BridgeCommunicationEvent] then
                     BridgeCommunication._EstablishedConnections[player][BridgeCommunicationEvent] = true;
                 end
 			end
@@ -124,7 +177,7 @@ function BridgeCommunication.Init() : Schema_BridgeCommunication
         -- Create BridgeCommunications on joining clients.
         game.Players.PlayerAdded:Connect(function(player: Player)
             for _,bridgeComm: BridgeComm in pairs(BridgeCommunication._BridgeComms) do
-                task.spawn(fireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication.Comm.Create,bridgeComm.Name);
+                task.spawn(fireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication._Comm.Create,bridgeComm.Name);
             end
         end);
     
@@ -142,11 +195,11 @@ function BridgeCommunication.Init() : Schema_BridgeCommunication
         end
         BridgeCommunicationEvent.OnClientEvent:Connect(function(bridgeKey: string,bridgeName: string,...: any)
             local bridgeComm: BridgeComm? = BridgeCommunication._BridgeComms[bridgeName] :: BridgeComm?;
-            if bridgeKey == BridgeCommunication.Comm.Create and not bridgeComm then
+            if bridgeKey == BridgeCommunication._Comm.Create and not bridgeComm then
                 BridgeCommunication.new(bridgeName);
-            elseif bridgeKey == BridgeCommunication.Comm.Destroy and bridgeComm then
+            elseif bridgeKey == BridgeCommunication._Comm.Destroy and bridgeComm then
                 (bridgeComm::BridgeComm):Destroy();
-            elseif bridgeKey == BridgeCommunication.Comm.Ping then
+            elseif bridgeKey == BridgeCommunication._Comm.Ping then
                 BridgeCommunicationEvent:FireServer(bridgeKey,bridgeName);
             end
         end);
@@ -158,6 +211,15 @@ function BridgeCommunication.Init() : Schema_BridgeCommunication
     end
     return BridgeCommunication;
 end
+
+--[=[
+    @within BridgeCommunication
+    @yields
+    @param bridgeName string -- Name of the BridgeCommunication
+    @param timeOut number? -- The time out in seconds or nil for no time out.
+    @return BridgeComm?
+    This function waits for a BridgeCommunication by it's name to exists or will time out if timeOut is specified then returns nil.
+]=]
 
 function BridgeCommunication.WaitForBridgeComm(bridgeName: string,timeOut: number?) : BridgeComm?
     if isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(".WaitForBridgeComm","client")),3); end
@@ -181,6 +243,16 @@ function BridgeCommunication.WaitForBridgeComm(bridgeName: string,timeOut: numbe
     return BridgeCommunication._BridgeComms[bridgeName] or nil;
 end
 
+--[=[
+    @within BridgeCommunication
+    @server
+    @param remote RemoteEvent
+    @param player Player
+    @param timeOut number?
+    @return T_ConnectionStatus
+    This method takes a remote and a player and returns a ConnectionStatus ([BridgeCommunication.T_ConnectionStatus])
+    this is only meant to be used for internal remotes.
+]=]
 function BridgeCommunication.EstablishConnection(remote: RemoteEvent,player: Player,timeOut: number?) : ConnectionStatus
 	if not isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(".WaitForConnection","server")),2); end
 	if typeof(remote) ~= "Instance" or not remote:IsA("RemoteEvent") then
@@ -208,7 +280,7 @@ function BridgeCommunication.EstablishConnection(remote: RemoteEvent,player: Pla
 	local startTime: number = DateTime.now().UnixTimestampMillis;
 	local timeInMS: number = timeOut and timeOut * 1000 or 0;
 	repeat
-		remote:FireClient(player,BridgeCommunication.Comm.Ping);
+		remote:FireClient(player,BridgeCommunication._Comm.Ping);
 		task.wait(0.15);
 	until not estaConnections[player] or estaConnections[player][remote] or timeOut and DateTime.now().UnixTimestampMillis - startTime >= timeInMS;
 	
@@ -226,6 +298,32 @@ function BridgeCommunication.EstablishConnection(remote: RemoteEvent,player: Pla
 	return ConnectionStatus.ESTABLISHED;
 end
 
+--[=[
+    @prop Name string
+    @within BridgeCommunication
+    The name of the BridgeCommunication object.
+]=]
+
+--[=[
+    @prop _BridgeFunctions Dictionary<(player: Player, ...any) -> ()>
+    @within BridgeCommunication
+    @private
+    The internal function that get associated to a bridgeKey and the function called when that bridgeKey is fired.
+]=]
+
+--[=[
+    @prop _RemoteEvent RemoteEvent
+    @within BridgeCommunication
+    @private
+    The RemoteEvent used internally for the BridgeCommunication object.
+]=]
+
+--[=[
+    @within BridgeCommunication
+    @param name string -- The unique name that will be used to identify this BridgeCommunication
+    @return BridgeComm
+    This methods creates a new BridgeCommunication object replicating it to the client.
+]=]
 function BridgeCommunication.new(name: string) : BridgeComm
     if typeof(name) ~= "string" then
         error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("name","string",typeof(name))),2);
@@ -244,7 +342,7 @@ function BridgeCommunication.new(name: string) : BridgeComm
 		remote.Name = name;
 		remote.Parent = BridgeEvents;
 		remote.OnServerEvent:Connect(function(player: Player,bridgeComm: string,...: any)
-			if bridgeComm == BridgeCommunication.Comm.Ping and BridgeCommunication._EstablishedConnections and BridgeCommunication._EstablishedConnections[player] then
+			if bridgeComm == BridgeCommunication._Comm.Ping and BridgeCommunication._EstablishedConnections and BridgeCommunication._EstablishedConnections[player] then
 				BridgeCommunication._EstablishedConnections[player][remote] = true;
 				return;
 			end
@@ -260,15 +358,15 @@ function BridgeCommunication.new(name: string) : BridgeComm
 
 		-- Create this BridgeComm on the client
 		for _: number,player: Player in ipairs(game.Players:GetPlayers()) do
-            task.spawn(fireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication.Comm.Create,self.Name);
+            task.spawn(fireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication._Comm.Create,self.Name);
 		end
     else
         -- Setup the RemoteEvent
         self._RemoteEvent = BridgeEvents:WaitForChild(name,60) :: RemoteEvent;
         if self._RemoteEvent then
             self._RemoteEvent.OnClientEvent:Connect(function(bridgeComm: string,...: any)
-                if bridgeComm == BridgeCommunication.Comm.Ping then
-                    self._RemoteEvent:FireServer(BridgeCommunication.Comm.Ping);
+                if bridgeComm == BridgeCommunication._Comm.Ping then
+                    self._RemoteEvent:FireServer(BridgeCommunication._Comm.Ping);
                     return;
                 end
                 if not self._BridgeFunctions[bridgeComm] then
@@ -286,7 +384,14 @@ function BridgeCommunication.new(name: string) : BridgeComm
     return self :: BridgeComm;
 end
 
--- Fires with (Player,...any)
+--[=[
+    @method SetCommBridge
+    @within BridgeCommunication
+    @param self BridgeComm
+    @param bridgeKey string -- The bridgeKey that will be fired to
+    @param bridgeFn (player: Player,...any) -> () -- The function that will be called when fired
+    This method sets a function to a bridgeKey that when fired will call the function.
+]=]
 function BridgeCommunication.SetCommBridge(self: BridgeComm,bridgeKey: string,bridgeFn: (player: Player,...any) -> ())
     if typeof(bridgeKey) ~= "string" then
         error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("bridgeKey","string",typeof(bridgeKey))),2);
@@ -301,6 +406,15 @@ function BridgeCommunication.SetCommBridge(self: BridgeComm,bridgeKey: string,br
     end
 end
 
+--[=[
+    @method FireServer
+    @within BridgeCommunication
+    @client
+    @param self BridgeComm
+    @param bridgeKey string -- The bridgeKey that will be fired to
+    @param ... any -- The tuple of arguments to fire
+    This method fires the server with a bridgeKey calling any CommBridge function on the server.
+]=]
 function BridgeCommunication.FireServer(self: BridgeComm,bridgeKey: string,...: any)
     if not self._BridgeFunctions[bridgeKey] then
         warn(BridgeCommunication._FormatOut("No CommBridge has been created for bridgeKey: "..bridgeKey.." in "..self.Name));
@@ -311,6 +425,16 @@ function BridgeCommunication.FireServer(self: BridgeComm,bridgeKey: string,...: 
     end
 end
 
+--[=[
+    @method FireClient
+    @within BridgeCommunication
+    @server
+    @param self BridgeComm
+    @param player Player -- The client to fire the remote to
+    @param bridgeKey string -- The bridgeKey that will be fired to
+    @param ... any -- The tuple of arguments to fire
+    This method fires the client with a bridgeKey calling any CommBridge function on the server.
+]=]
 function BridgeCommunication.FireClient(self: BridgeComm,player: Player,bridgeKey: string,...: any)
     if typeof(player) ~= "Instance" or not player:IsA("Player") then
         error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("player","Player",typeof(player))),3);
@@ -322,16 +446,31 @@ function BridgeCommunication.FireClient(self: BridgeComm,player: Player,bridgeKe
     task.spawn(BridgeCommunication._FireWithConnection,self,player,bridgeKey,...);
 end
 
+--[=[
+    @method _FireWithConnection
+    @within BridgeCommunication
+    @private
+    @param self BridgeComm
+    @param player Player -- The player to fire with a connection to
+    @param ... any -- The arguments to fire
+    This method is for internally firing through a remote on the client ensuring a connection or a timeOut.
+]=]
 function BridgeCommunication._FireWithConnection(self: BridgeComm,player: Player,...: any)
     if self._RemoteEvent then
         fireWithConnection(self._RemoteEvent,player,...);
     end
 end
 
+--[=[
+    @method Destroy
+    @within BridgeCommunication
+    @param self BridgeComm -- The BridgeComm that will be destroyed
+    This methods destroys the BridgeComm object also relaying the destruction to the client.
+]=]
 function BridgeCommunication.Destroy(self: BridgeComm)
 	if isServer then
 		for _: number,player: Player in ipairs(game.Players:GetPlayers()) do
-            task.spawn(fireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication.Comm.Destroy,self.Name);
+            task.spawn(fireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication._Comm.Destroy,self.Name);
 			if BridgeCommunication._EstablishedConnections and BridgeCommunication._EstablishedConnections[player] and self._RemoteEvent then
 				BridgeCommunication._EstablishedConnections[player][self._RemoteEvent] = nil;
 			end
