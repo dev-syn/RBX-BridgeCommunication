@@ -234,7 +234,7 @@ function BridgeCommunication.WaitForBridgeComm(bridgeName: string,timeOut: numbe
     local timeInMS: number = timeOut and timeOut * 1000 or 0;
     local toWarn: boolean = not timeOut;
     repeat
-        if toWarn and DateTime.now().UnixTimestampMillis - startTime >= 10000 then
+        if toWarn and DateTime.now().UnixTimestampMillis - startTime >= 7000 then
             toWarn = false;
             warn(BridgeCommunication._FormatOut("Infinite yield possible waiting for BridgeCommunication named: "..bridgeName));
         end
@@ -283,12 +283,13 @@ function BridgeCommunication.EstablishConnection(remote: RemoteEvent,player: Pla
 		remote:FireClient(player,BridgeCommunication._Comm.Ping);
 		task.wait(0.15);
 	until not estaConnections[player] or estaConnections[player][remote] or timeOut and DateTime.now().UnixTimestampMillis - startTime >= timeInMS;
-	
 	-- If no established connection then the connection timed out
 	if not estaConnections[player] or not estaConnections[player][remote] then
+        -- Clear any previous _QueuedComms
+        if BridgeCommunication._QueuedComms[player] and BridgeCommunication._QueuedComms[player][remote] then table.clear(BridgeCommunication._QueuedComms[player][remote]) end
 		return ConnectionStatus.TIMEOUT;
 	end
-	-- Call the queued args
+    -- Call the queued args
 	if BridgeCommunication._QueuedComms[player] and BridgeCommunication._QueuedComms[player][remote] then
 		for _,args: {any} in ipairs(BridgeCommunication._QueuedComms[player][remote]) do
 			remote:FireClient(player,table.unpack(args));
