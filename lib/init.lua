@@ -254,7 +254,7 @@ end
     this is only meant to be used for internal remotes.
 ]=]
 function BridgeCommunication.EstablishConnection(remote: RemoteEvent,player: Player,timeOut: number?) : ConnectionStatus
-	if not isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(".WaitForConnection","server")),2); end
+	if not isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(".WaitForConnection","server")),3); end
 	if typeof(remote) ~= "Instance" or not remote:IsA("RemoteEvent") then
 		error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("remote","RemoteEvent",typeof(remote))),3);
 	end
@@ -284,14 +284,13 @@ function BridgeCommunication.EstablishConnection(remote: RemoteEvent,player: Pla
 		task.wait(0.15);
 	until not estaConnections[player] or estaConnections[player][remote] or timeOut and DateTime.now().UnixTimestampMillis - startTime >= timeInMS;
 	
-	-- If no established connection then the connection TimedOut
+	-- If no established connection then the connection timed out
 	if not estaConnections[player] or not estaConnections[player][remote] then
 		return ConnectionStatus.TIMEOUT;
 	end
 	-- Call the queued args
 	if BridgeCommunication._QueuedComms[player] and BridgeCommunication._QueuedComms[player][remote] then
 		for _,args: {any} in ipairs(BridgeCommunication._QueuedComms[player][remote]) do
-            print("args: ",table.unpack(args));
 			remote:FireClient(player,table.unpack(args));
 		end
 	end
@@ -337,29 +336,30 @@ function BridgeCommunication.new(name: string) : BridgeComm
 
     if isServer then
         -- Setup the RemoteEvent
-		local remote: RemoteEvent = Instance.new("RemoteEvent");
-		remote = Instance.new("RemoteEvent") :: RemoteEvent;
-		remote.Name = name;
-		remote.Parent = BridgeEvents;
-		remote.OnServerEvent:Connect(function(player: Player,bridgeComm: string,...: any)
-			if bridgeComm == BridgeCommunication._Comm.Ping and BridgeCommunication._EstablishedConnections and BridgeCommunication._EstablishedConnections[player] then
-				BridgeCommunication._EstablishedConnections[player][remote] = true;
-				return;
-			end
-			if not self._BridgeFunctions[bridgeComm] then
-				local startTime: number = DateTime.now().UnixTimestamp;
-				repeat task.wait(0.15) until self._BridgeFunctions[bridgeComm] or DateTime.now().UnixTimestamp - startTime >= 7;
-			end
-			if typeof(self._BridgeFunctions[bridgeComm]) == "function" then
-				self._BridgeFunctions[bridgeComm](player,...);
-			end
-		end);
-		self._RemoteEvent = remote;
+        if not BridgeEvents:FindFirstChild(name) then
+            local remote: RemoteEvent = Instance.new("RemoteEvent") :: RemoteEvent;
+            remote.Name = name;
+            remote.Parent = BridgeEvents;
+            remote.OnServerEvent:Connect(function(player: Player,bridgeComm: string,...: any)
+                if bridgeComm == BridgeCommunication._Comm.Ping and BridgeCommunication._EstablishedConnections and BridgeCommunication._EstablishedConnections[player] then
+                    BridgeCommunication._EstablishedConnections[player][remote] = true;
+                    return;
+                end
+                if not self._BridgeFunctions[bridgeComm] then
+                    local startTime: number = DateTime.now().UnixTimestamp;
+                    repeat task.wait(0.15) until self._BridgeFunctions[bridgeComm] or DateTime.now().UnixTimestamp - startTime >= 7;
+                end
+                if typeof(self._BridgeFunctions[bridgeComm]) == "function" then
+                    self._BridgeFunctions[bridgeComm](player,...);
+                end
+            end);
+            self._RemoteEvent = remote;
 
-		-- Create this BridgeComm on the client
-		for _: number,player: Player in ipairs(game.Players:GetPlayers()) do
-            task.spawn(fireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication._Comm.Create,self.Name);
-		end
+            -- Create this BridgeComm on the client
+            for _: number,player: Player in ipairs(game.Players:GetPlayers()) do
+                task.spawn(fireWithConnection,BridgeCommunicationEvent,player,BridgeCommunication._Comm.Create,self.Name);
+            end
+        end
     else
         -- Setup the RemoteEvent
         self._RemoteEvent = BridgeEvents:WaitForChild(name,60) :: RemoteEvent;
@@ -402,7 +402,7 @@ function BridgeCommunication.SetCommBridge(self: BridgeComm,bridgeKey: string,br
     if not self._BridgeFunctions[bridgeKey] then
         self._BridgeFunctions[bridgeKey] = bridgeFn;
     else
-        warn(BridgeCommunication._FormatOut("This CommBridge already exists in BridgeCommunication with name: "),self.Name);
+        warn(BridgeCommunication._FormatOut("This CommBridge already exists in BridgeComm with name: "),self.Name);
     end
 end
 
@@ -416,6 +416,7 @@ end
     This method fires the server with a bridgeKey calling any CommBridge function on the server.
 ]=]
 function BridgeCommunication.FireServer(self: BridgeComm,bridgeKey: string,...: any)
+    if isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(":FireServer","client")),3); end
     if not self._BridgeFunctions[bridgeKey] then
         warn(BridgeCommunication._FormatOut("No CommBridge has been created for bridgeKey: "..bridgeKey.." in "..self.Name));
         return;
@@ -436,6 +437,7 @@ end
     This method fires the client with a bridgeKey calling any CommBridge function on the server.
 ]=]
 function BridgeCommunication.FireClient(self: BridgeComm,player: Player,bridgeKey: string,...: any)
+    if not isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(":FireClient","server")),3); end
     if typeof(player) ~= "Instance" or not player:IsA("Player") then
         error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("player","Player",typeof(player))),3);
     end
@@ -456,6 +458,10 @@ end
     This method is for internally firing through a remote on the client ensuring a connection or a timeOut.
 ]=]
 function BridgeCommunication._FireWithConnection(self: BridgeComm,player: Player,...: any)
+    if not isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(":FireClient","server")),3); end
+    if typeof(player) ~= "Instance" or not player:IsA("Player") then
+        error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("player","Player",typeof(player))),3);
+    end
     if self._RemoteEvent then
         fireWithConnection(self._RemoteEvent,player,...);
     end
