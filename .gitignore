@@ -5,7 +5,10 @@
 /*.rbxlx.lock
 /*.rbxl.lock
 
+# Wally packages
 Packages/_Index
 DevPackages/_Index
+/wally.lock
 
+# Moonwave
 build/
