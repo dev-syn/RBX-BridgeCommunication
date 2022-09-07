@@ -1,8 +1,8 @@
 [package]
 name = "dev-syn/bridgecommunication"
-description = "Designed to automate one-way server/client communication."
+description = "Designed to automate one-way server/client communication also includes establishing a connection with the client before firing to mainly ensure integrity but also safe with a time out."
 license = "MIT"
-version = "0.1.8"
+version = "0.2.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 
