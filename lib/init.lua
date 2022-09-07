@@ -144,7 +144,7 @@ end
 --[=[
     @within BridgeCommunication
     This method is for initializing the BridgeCommunication Module this function **must** be called on both the **server & client**.
-    This returns the BridgeCommunication class allowing to call Init on the same line hile retaining the class required.
+    This returns the BridgeCommunication class allowing to call Init on the same line while retaining the class required.
     ```lua
         local BridgeCommunication = require(BridgeCommunicationModule).Init();
         -- BridgeCommunication is the class
