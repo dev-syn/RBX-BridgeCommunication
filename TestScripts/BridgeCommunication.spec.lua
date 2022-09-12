@@ -32,7 +32,7 @@ return function()
                 expect(testBridgeComm).to.be.ok();
             end);
             it("Should be able to SetCommBridge",function()
-                testBridgeComm:SetCommBridge("Message",function(player: Player,...: any)
+                testBridgeComm:SetCommBridge("Message",function(...: any)
                     warn("Client recieved message from server: ",...);
                 end);
             end);
