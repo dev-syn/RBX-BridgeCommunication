@@ -17,6 +17,8 @@ export type Object_BridgeCommunication = {
     _RemoteEvent: RemoteEvent?
 };
 
+type CommBridgeFn = (player: Player,...any) -> () | (...any) -> ()
+
 export type Schema_BridgeCommunication = {
     ClassName: "BridgeCommunication" | string,
     __index: Object,
@@ -34,7 +36,7 @@ export type Schema_BridgeCommunication = {
     WaitForBridgeComm: (bridgeName: string,timeOut: number?) -> BridgeComm?,
     EstablishConnection : (remote: RemoteEvent,player: Player,timeOut: number?,...any) -> ConnectionStatus,
     new: (name: string) -> BridgeComm,
-    SetCommBridge: (self: BridgeComm,bridgeKey: string,bridgeFn: (player: Player,any...) -> ()) -> (),
+    SetCommBridge: (self: BridgeComm,bridgeKey: string,bridgeFn: CommBridgeFn) -> (),
     FireServer: (self: BridgeComm,bridgeKey: string,...any) -> (),
     FireClient: (self: BridgeComm,player: Player,bridgeKey: string,...any) -> (),
     _FireWithConnection: (self: BridgeComm,player: Player,...any) -> (),
@@ -47,10 +49,10 @@ export type BridgeComm = Object_BridgeCommunication & Schema_BridgeCommunication
 
 local isServer: boolean = game:GetService("RunService"):IsServer();
 
-local NAME_BRIDGE_COMM = "BridgeCommunicationEvent"
+local NAME_BRIDGE_COMM: string = "BridgeCommunicationEvent"
 
-local ERROR_INVALID_PARAM = "Invalid type passed for '%s' expected '%s' but got '%s'";
-local ERROR_INVALID_ENV = "'%s' can only be called from the '%s' env";
+local ERROR_INVALID_PARAM: "Invalid type passed for '%s' expected '%s' but got '%s'" = "Invalid type passed for '%s' expected '%s' but got '%s'";
+local ERROR_INVALID_ENV: "'%s' can only be called from the '%s' env" = "'%s' can only be called from the '%s' env";
 
 --- @class BridgeCommunication
 --- This class is designed to automate communication between the server and client it uses RemoteEvents internally.
@@ -64,6 +66,7 @@ BridgeCommunication.__index = BridgeCommunication;
     The class name of this class.
 ]=]
 BridgeCommunication.ClassName = "BridgeCommunication";
+
 --[=[
     @prop _EstablishedConnections Map<Player,Map<RemoteEvent,boolean?>>
     @within BridgeCommunication
@@ -71,6 +74,7 @@ BridgeCommunication.ClassName = "BridgeCommunication";
     The internal tracking of established connections with clients.
 ]=]
 BridgeCommunication._EstablishedConnections = isServer and {} or nil;
+
 --[=[
     @prop _BridgeComms Dictionary<BridgeComm>
     @within BridgeCommunication
@@ -151,7 +155,6 @@ end
         BridgeCommunication.new("Test");
     ```
 ]=]
-
 function BridgeCommunication.Init() : Schema_BridgeCommunication
     if isServer then
         -- Setup BridgeCommunicationEvent
@@ -220,7 +223,6 @@ end
     @return BridgeComm?
     This function waits for a BridgeCommunication by it's name to exists or will time out if timeOut is specified then returns nil.
 ]=]
-
 function BridgeCommunication.WaitForBridgeComm(bridgeName: string,timeOut: number?) : BridgeComm?
     if isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(".WaitForBridgeComm","client")),3); end
     if typeof(bridgeName) ~= "string" then
@@ -255,6 +257,8 @@ end
 ]=]
 function BridgeCommunication.EstablishConnection(remote: RemoteEvent,player: Player,timeOut: number?) : ConnectionStatus
 	if not isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(".WaitForConnection","server")),3); end
+
+    -- Type checks
 	if typeof(remote) ~= "Instance" or not remote:IsA("RemoteEvent") then
 		error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("remote","RemoteEvent",typeof(remote))),3);
 	end
@@ -264,9 +268,11 @@ function BridgeCommunication.EstablishConnection(remote: RemoteEvent,player: Pla
 	if typeof(timeOut) ~= "number" and timeOut ~= nil then
 		error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("timeOut","number?",typeof(timeOut))),3);
 	end
+
 	if timeOut and timeOut < (1 / 60) or timeOut == math.huge then timeOut = 1 / 60; end
 	if not BridgeCommunication._EstablishedConnections then return ConnectionStatus.TIMEOUT; end
 	
+    -- If this player doesn't exist in _EstablishedConnections add them
 	local estaConnections: Map<Player,Map<RemoteEvent,boolean?>> = BridgeCommunication._EstablishedConnections :: Map<Player,Map<RemoteEvent,boolean?>>;
 	if not estaConnections[player] then
 		estaConnections[player] = {};
@@ -346,9 +352,10 @@ function BridgeCommunication.new(name: string) : BridgeComm
                     BridgeCommunication._EstablishedConnections[player][remote] = true;
                     return;
                 end
+                -- Yield 10 seconds if no bridge function is found in case it will exist
                 if not self._BridgeFunctions[bridgeComm] then
                     local startTime: number = DateTime.now().UnixTimestamp;
-                    repeat task.wait(0.15) until self._BridgeFunctions[bridgeComm] or DateTime.now().UnixTimestamp - startTime >= 7;
+                    repeat task.wait(0.15) until self._BridgeFunctions[bridgeComm] or DateTime.now().UnixTimestamp - startTime >= 10;
                 end
                 if typeof(self._BridgeFunctions[bridgeComm]) == "function" then
                     self._BridgeFunctions[bridgeComm](player,...);
@@ -370,12 +377,13 @@ function BridgeCommunication.new(name: string) : BridgeComm
                     self._RemoteEvent:FireServer(BridgeCommunication._Comm.Ping);
                     return;
                 end
+                -- Yield 10 seconds if no bridge function is found in case it will exist
                 if not self._BridgeFunctions[bridgeComm] then
                     local startTime: number = DateTime.now().UnixTimestamp;
-                    repeat task.wait(0.15) until self._BridgeFunctions[bridgeComm] or DateTime.now().UnixTimestamp - startTime >= 7;
+                    repeat task.wait(0.15) until self._BridgeFunctions[bridgeComm] or DateTime.now().UnixTimestamp - startTime >= 10;
                 end
                 if typeof(self._BridgeFunctions[bridgeComm]) == "function" then
-                    self._BridgeFunctions[bridgeComm](game.Players.LocalPlayer,...);
+                    self._BridgeFunctions[bridgeComm](...);
                 end
             end);
         end
@@ -390,10 +398,10 @@ end
     @within BridgeCommunication
     @param self BridgeComm
     @param bridgeKey string -- The bridgeKey that will be fired to
-    @param bridgeFn (player: Player,...any) -> () -- The function that will be called when fired
+    @param bridgeFn (player: Player,...any) -> () | (...any) -- This is a function that will either contain a player and args if on the server while on the client it will represent just args.
     This method sets a function to a bridgeKey that when fired will call the function.
 ]=]
-function BridgeCommunication.SetCommBridge(self: BridgeComm,bridgeKey: string,bridgeFn: (player: Player,...any) -> ())
+function BridgeCommunication.SetCommBridge(self: BridgeComm,bridgeKey: string,bridgeFn: CommBridgeFn)
     if typeof(bridgeKey) ~= "string" then
         error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("bridgeKey","string",typeof(bridgeKey))),2);
     end
@@ -471,7 +479,7 @@ end
 --[=[
     @method Destroy
     @within BridgeCommunication
-    @param self BridgeComm -- The BridgeComm that will be destroyed
+    @param self BridgeComm
     This methods destroys the BridgeComm object also relaying the destruction to the client.
 ]=]
 function BridgeCommunication.Destroy(self: BridgeComm)
