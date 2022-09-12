@@ -9,13 +9,14 @@
       "BridgeCommunication": {
         "$path": "lib",
   
-        "Dependencies": {"$path": "Packages"}
+        "Dependencies": {"$path": "Packages"},
+        "BridgeCommunication.spec": {"$path": "TestScripts/BridgeCommunication.spec.lua"}
       }
     },
     "ServerScriptService": {
       "$className": "ServerScriptService",
 
-      "testServer": {"$path": "TestScripts/testServer.server.lua"}
+      "testServer": {"$path": "TestScripts/testBridge.server.lua"}
     },
     "StarterPlayer": {
       "$className": "StarterPlayer",
@@ -23,7 +24,7 @@
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
 
-        "testClient": {"$path": "TestScripts/testClient.client.lua"}
+        "testClient": {"$path": "TestScripts/testBridge.client.lua"}
       }
     }
   }
