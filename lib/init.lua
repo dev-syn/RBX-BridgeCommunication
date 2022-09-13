@@ -426,10 +426,6 @@ end
 ]=]
 function BridgeCommunication.FireServer(self: BridgeComm,bridgeKey: string,...: any)
     if isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(":FireServer","client")),3); end
-    if not self._BridgeFunctions[bridgeKey] then
-        warn(BridgeCommunication._FormatOut("No CommBridge has been created for bridgeKey: "..bridgeKey.." in "..self.Name));
-        return;
-    end
     if self._RemoteEvent then
         self._RemoteEvent:FireServer(bridgeKey,...);
     end
@@ -449,10 +445,6 @@ function BridgeCommunication.FireClient(self: BridgeComm,player: Player,bridgeKe
     if not isServer then error(BridgeCommunication._FormatOut(ERROR_INVALID_ENV:format(":FireClient","server")),3); end
     if typeof(player) ~= "Instance" or not player:IsA("Player") then
         error(BridgeCommunication._FormatOut(ERROR_INVALID_PARAM:format("player","Player",typeof(player))),3);
-    end
-    if not self._BridgeFunctions[bridgeKey] then
-        warn(BridgeCommunication._FormatOut("No CommBridge has been created for bridgeKey: "..bridgeKey.." in "..self.Name));
-        return;
     end
     task.spawn(BridgeCommunication._FireWithConnection,self,player,bridgeKey,...);
 end
